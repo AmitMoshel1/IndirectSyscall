@@ -28,7 +28,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="syscalls.asm">
+    <MASM Include="syscall_funcs.asm">
       <Filter>Source Files</Filter>
     </MASM>
   </ItemGroup>

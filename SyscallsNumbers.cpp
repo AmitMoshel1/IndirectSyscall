@@ -10,6 +10,7 @@ char XOR(char Name)
 	return Name ^ (char)KEY;
 }
 
+
 HMODULE ParsePEB(char XORDllName) {
     PPEB PEBPtr = (PPEB)__readgsqword(0x60);
     const wchar_t* name;
@@ -57,7 +58,7 @@ FARPROC GetFuncAddress(HMODULE handle, const char* APIFunction)
         FuncName = reinterpret_cast<char*>(pOptionalHeaders->ImageBase + NameAddresses[i]);
         if (strcmp(FuncName, APIFunction) == 0)
         {
-            return (FARPROC)(pOptionalHeaders->ImageBase + FuncAddresses[i]);
+            return (FARPROC)(pOptionalHeaders->ImageBase + FuncAddresses[i+1]);
         }
     }    
     return NULL;
@@ -75,14 +76,46 @@ FARPROC GetFuncAddress(HMODULE handle, const char* APIFunction)
 //}
 
 
-int GetSyscallNumber(HMODULE handle, FARPROC BaseAddress)
+char *GetSyscallNumberHooked(FARPROC FuncAddress1, FARPROC FuncAddress2) 
 {
-    /*
-    After getting the function's address, determinig whether the function is hooked
-    (by searching for the presence of a JMP opcode inside the function's block),
-    then extracting the syscall number.
-    */
-	return 0;
+    unsigned char* OpCode1 = (unsigned char*)FuncAddress1;
+    unsigned char* OpCode2 = (unsigned char*)FuncAddress2;
+    
+    unsigned char Syscall1;
+    unsigned char Syscall2;
+
+
+    if (OpCode1[5] == 0x00 && OpCode2[5] == 0x00) {
+        Syscall1 = OpCode1[4];
+        Syscall2 = OpCode2[4];
+        printf("Syscall Number in the function Before: %02X\n", Syscall1);
+        printf("Syscall Number in the function after: %02X\n", Syscall2);
+
+        return (char*)(Syscall1 + 1);
+    }
+
+    unsigned int* syscall_expanded1 = (unsigned int*)(OpCode1 + 4);
+    unsigned int* syscall_expanded2 = (unsigned int*)(OpCode2 + 4);
+
+    printf("\nSpecial Syscall Number in the function Before: %02X\n", *syscall_expanded1);
+    printf("Special Syscall Number in the function After: %02X\n", *syscall_expanded2);
+
+    int SyscallNumber =  *(syscall_expanded1)+1;
+    return (char*)SyscallNumber;
+
+}
+
+PVOID GetSyscallAddress(FARPROC address) 
+{
+    unsigned char* OpCode = (unsigned char*)address;
+
+    while(OpCode[0] != 0x0F && OpCode[1] != 05)
+    {
+        address = (FARPROC)((UINT_PTR)address+1);
+        OpCode = (unsigned char*)address;
+    }
+    //printf("syscall address resides at: 0x%p\n", address);
+    return address;
 }
 
 
