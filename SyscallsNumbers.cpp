@@ -5,13 +5,9 @@
 #include "SyscallsNumbers.h"
 #include <string.h>
 
-char XOR(char Name)
-{
-	return Name ^ (char)KEY;
-}
 
-
-HMODULE ParsePEB(char XORDllName) {
+/*ParsePEB is implemented but not used*/
+HMODULE ParsePEB(char DLL) {
     PPEB PEBPtr = (PPEB)__readgsqword(0x60);
     const wchar_t* name;
 
@@ -24,7 +20,7 @@ HMODULE ParsePEB(char XORDllName) {
     while (entry->Flink != &HeadModuleList->InMemoryOrderModuleList) {
         PLDR_DATA_TABLE_ENTRY table_entries = (PLDR_DATA_TABLE_ENTRY)entry->Flink;
         name = table_entries->FullDllName.Buffer;
-        if (_wcsicmp(name, (wchar_t *)XOR(XORDllName)) == 0) {
+        if (_wcsicmp(name, (wchar_t *)DLL) == 0) {
             HMODULE NtdllBase = (HMODULE)table_entries->DllBase;
             return NtdllBase;
         }
@@ -32,6 +28,13 @@ HMODULE ParsePEB(char XORDllName) {
     }
     return NULL;
 }
+
+/*
+Parsing the Export Address Table of ntdll.dll and iterating over the exported function's addresses.
+for each function iterating inside the Export Address Table, comparing it to the value
+of the function we want to execute through indirect syscall technique, then returning the address
+of that function.
+*/
 
 FARPROC GetFuncAddress(HMODULE handle, const char* APIFunction)
 {
@@ -63,18 +66,6 @@ FARPROC GetFuncAddress(HMODULE handle, const char* APIFunction)
     }    
     return NULL;
 }
-
-//FARPROC GetFuncAddress(HMODULE Handle, char* XORFuncName) 
-//{
-    /*
-    Parsing the EAT of the DLL and iterating over the exported function's addresses
-    for each function iterating inside the EAT, XORING it and comparing it to the value
-    of the function we want to execute through indirect syscall, then returning the address
-    of that function.
-    */
-    //return NULL;
-//}
-
 
 char *GetSyscallNumberHooked(FARPROC FuncAddress1, FARPROC FuncAddress2) 
 {
@@ -114,7 +105,6 @@ PVOID GetSyscallAddress(FARPROC address)
         address = (FARPROC)((UINT_PTR)address+1);
         OpCode = (unsigned char*)address;
     }
-    //printf("syscall address resides at: 0x%p\n", address);
     return address;
 }
 

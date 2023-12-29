@@ -13,7 +13,7 @@
 // 
 // Get the SSN and the address of the "syscall" instruction of the Native API function
 
-extern "C" UINT_PTR syscalladdress = 0;
+extern "C" UINT_PTR syscall_address = 0;
 extern "C" DWORD syscall_value = 0;
 extern "C" NTSTATUS MyNtAllocateVirtualMemory(HANDLE ProcessHandle, PVOID *BaseAddress, ULONG_PTR ZeroBits, PSIZE_T RegionSize, ULONG AllocationType, ULONG Protect);
 
@@ -55,13 +55,13 @@ int main()
 
     FARPROC FunctionAddress1 = (FARPROC)((UINT_PTR)(FunctionAddress)-0x20); // Address of function before it
     FARPROC FunctionAddress2 = (FARPROC)((UINT_PTR)(FunctionAddress)+0x20); // Address of function after it
-    syscalladdress = (UINT_PTR)GetSyscallAddress(FunctionAddress);
+    syscall_address = (UINT_PTR)GetSyscallAddress(FunctionAddress);
     
     printf("Function before address: 0x%p\n", FunctionAddress1);
     printf("%s Function Address: 0x%p\n", FuncName, FunctionAddress);
    
     printf("Function after address: 0x%p\n", FunctionAddress2);
-    printf("%s Syscall Address: 0x%p\n\n", FuncName, syscalladdress);
+    printf("%s Syscall Address: 0x%p\n\n", FuncName, syscall_address);
 
     /*----This is used to view the opcodes of the extracted function----*/
     unsigned char* OpCode = (unsigned char*)FunctionAddress;
@@ -73,25 +73,31 @@ int main()
     /*----This is used to view the opcodes of the extracted function----*/
 
     printf("\n\n");
-    if (IsFunctionHooked(FuncName, OpCode)) { // remove the ! sign
-        syscalladdress = (UINT_PTR)GetSyscallAddress(FunctionAddress);
+    if (IsFunctionHooked(FuncName, OpCode)) {
+        syscall_address = (UINT_PTR)GetSyscallAddress(FunctionAddress);
         syscall_value = (DWORD)GetSyscallNumberHooked(FunctionAddress1, FunctionAddress2); // need to fix that
-        printf("\nhooked function syscall: 0x%x\n", syscall_value);
+        printf("\nhooked %s function syscall: 0x%x\n", FuncName, syscall_value);
+        printf("\nhooked %s syscall address: 0x%p\n", FuncName, syscall_address);
     }
     else
     {
-        syscalladdress = (UINT_PTR)GetSyscallAddress(FunctionAddress);
+        syscall_address = (UINT_PTR)GetSyscallAddress(FunctionAddress);
         syscall_value = (DWORD)OpCode[4];
-        printf("unhhoked function's syscall: 0x%x\n", syscall_value);
-        //NTSTATUS a = MyNtAllocateVirtualMemory(GetModuleHandleA(NULL), baseaddr, (ULONG_PTR)0, &buffSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE, syscall_value, syscalladdress);
-        
+        printf("\nunhooked %s function syscall: 0x%x", FuncName, syscall_value);
+        printf("\nunhooked %s syscall address: 0x%p\n", FuncName, syscall_address);
+
         PVOID BaseAddress = NULL;
         SIZE_T buffSize = 0x1000;
         ULONG ZeroBits = 0;
         NTSTATUS a = MyNtAllocateVirtualMemory((HANDLE)-1, (PVOID*)&BaseAddress, (ULONG_PTR)0, &buffSize, (ULONG)(MEM_COMMIT | MEM_RESERVE), PAGE_EXECUTE_READWRITE);
         
+        char hexchars[] = "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90";
+        memcpy(BaseAddress, hexchars, sizeof(hexchars));
+        
         printf("NTSTATUS VALUE: %d\n", a);
         printf("Allocated address at: 0x%p\n", BaseAddress);
+        
+        printf("\n");
 
     }
 

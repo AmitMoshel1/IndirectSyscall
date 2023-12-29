@@ -2,9 +2,6 @@
 #include <Windows.h>
 #include <winternl.h>
 
-#define KEY "DEADBEEF"
-
-char XOR(char* Name);	//XORing function names and DLLs
 HMODULE ParsePEB(char XORFuncName);	// Parsing the PEB to extract ntdll's base address inside current process
 FARPROC GetFuncAddress(HMODULE entry, const char* FuncName); // Get the function's address 
 
