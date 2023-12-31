@@ -56,8 +56,6 @@ FARPROC GetFuncAddress(HMODULE handle, const char* APIFunction)
     char* FuncName;
     for (DWORD i = 0; i < NumberOfFunctions; i++)
     {
-        //printf("Function Name: %s\n", pOptionalHeaders->ImageBase + NameAddresses[i]);
-        //printf("Function Address: 0x%p\n", (FARPROC)(&pOptionalHeaders->ImageBase + FuncAddresses[i]));
         FuncName = reinterpret_cast<char*>(pOptionalHeaders->ImageBase + NameAddresses[i]);
         if (strcmp(FuncName, APIFunction) == 0)
         {
@@ -75,12 +73,12 @@ char *GetSyscallNumberHooked(FARPROC FuncAddress1, FARPROC FuncAddress2)
     unsigned char Syscall1;
     unsigned char Syscall2;
 
-
+    /* An if statement which checks if the SSN < 0x100 */
     if (OpCode1[5] == 0x00 && OpCode2[5] == 0x00) {
         Syscall1 = OpCode1[4];
         Syscall2 = OpCode2[4];
-        printf("Syscall Number in the function Before: %02X\n", Syscall1);
-        printf("Syscall Number in the function after: %02X\n", Syscall2);
+        printf("Syscall Number in the function Before: 0x%02X\n", Syscall1);
+        printf("Syscall Number in the function after: 0x%02X\n", Syscall2);
 
         return (char*)(Syscall1 + 1);
     }
@@ -88,12 +86,30 @@ char *GetSyscallNumberHooked(FARPROC FuncAddress1, FARPROC FuncAddress2)
     unsigned int* syscall_expanded1 = (unsigned int*)(OpCode1 + 4);
     unsigned int* syscall_expanded2 = (unsigned int*)(OpCode2 + 4);
 
-    printf("\nSpecial Syscall Number in the function Before: %02X\n", *syscall_expanded1);
-    printf("Special Syscall Number in the function After: %02X\n", *syscall_expanded2);
+    printf("\nSpecial Syscall Number in the function Before: 0x%02X\n", *syscall_expanded1);
+    printf("Special Syscall Number in the function After: 0x%02X\n", *syscall_expanded2);
 
     int SyscallNumber =  *(syscall_expanded1)+1;
     return (char*)SyscallNumber;
 
+}
+
+char* GetSyscallNumberNotHooked(unsigned char* OpCode)
+{
+    /*
+    Function which returns the SSN of a function
+    and checks whether the SSN < 0x100, if so returns the 5th byte of the OpCodes
+    else, takes the 4th location and convert that to a word, which will return
+    the SSN that is 3 figures.
+    */
+    unsigned char Syscall;
+    if (OpCode[5] == 0x00) 
+    {
+        return (char *)OpCode[4];
+    }
+    unsigned int* syscall = (unsigned int*)(OpCode + 4);
+    int SyscallNumber = *(syscall);
+    return (char*)SyscallNumber;
 }
 
 PVOID GetSyscallAddress(FARPROC address) 

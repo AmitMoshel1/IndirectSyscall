@@ -3,15 +3,6 @@
 #include "winternl.h"
 #include "SyscallsNumbers.h"
 
-// Parse PEB
-// 
-// Extract NTDLL.dll base address
-// 
-// Get to the Export Address Table of the ntdll.dll
-// 
-// Extract the function address that we want to indirect syscall 
-// 
-// Get the SSN and the address of the "syscall" instruction of the Native API function
 
 extern "C" UINT_PTR syscall_address = 0;
 extern "C" DWORD syscall_value = 0;
@@ -47,21 +38,15 @@ BOOL IsFunctionHooked(const char * FuncName, unsigned char * OpCode)
 
 int main() 
 {
+    PVOID BaseAddress;
+    SIZE_T buffSize;
+    ULONG ZeroBits;
+    char hexchars[] = "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90";
 
     const char* FuncName = "NtAllocateVirtualMemory";
     HMODULE hModule = LoadLibraryA("ntdll.dll");
     
     FARPROC FunctionAddress = GetFuncAddress(hModule, FuncName);
-
-    FARPROC FunctionAddress1 = (FARPROC)((UINT_PTR)(FunctionAddress)-0x20); // Address of function before it
-    FARPROC FunctionAddress2 = (FARPROC)((UINT_PTR)(FunctionAddress)+0x20); // Address of function after it
-    syscall_address = (UINT_PTR)GetSyscallAddress(FunctionAddress);
-    
-    printf("Function before address: 0x%p\n", FunctionAddress1);
-    printf("%s Function Address: 0x%p\n", FuncName, FunctionAddress);
-   
-    printf("Function after address: 0x%p\n", FunctionAddress2);
-    printf("%s Syscall Address: 0x%p\n\n", FuncName, syscall_address);
 
     /*----This is used to view the opcodes of the extracted function----*/
     unsigned char* OpCode = (unsigned char*)FunctionAddress;
@@ -71,36 +56,56 @@ int main()
         printf("%02X ", OpCode[i]);
     }
     /*----This is used to view the opcodes of the extracted function----*/
-
     printf("\n\n");
+
     if (IsFunctionHooked(FuncName, OpCode)) {
+        FARPROC FunctionAddress1 = (FARPROC)((UINT_PTR)(FunctionAddress)-0x20); // Address of function before it
+        FARPROC FunctionAddress2 = (FARPROC)((UINT_PTR)(FunctionAddress)+0x20); // Address of function after it
+        syscall_address = (UINT_PTR)GetSyscallAddress(FunctionAddress);
+
+        printf("Function before address: 0x%p\n", FunctionAddress1);
+        printf("Function after address: 0x%p\n\n", FunctionAddress2);
+
+        printf("%s Function Address: 0x%p\n", FuncName, FunctionAddress);
+        printf("%s Syscall Address: 0x%p\n\n", FuncName, syscall_address);
+
         syscall_address = (UINT_PTR)GetSyscallAddress(FunctionAddress);
         syscall_value = (DWORD)GetSyscallNumberHooked(FunctionAddress1, FunctionAddress2); // need to fix that
         printf("\nhooked %s function syscall: 0x%x\n", FuncName, syscall_value);
-        printf("\nhooked %s syscall address: 0x%p\n", FuncName, syscall_address);
+        printf("hooked %s syscall address: 0x%p\n", FuncName, syscall_address);
+
+        BaseAddress = NULL;
+        buffSize = 0x1000;
+        ZeroBits = 0;
+        NTSTATUS Result = MyNtAllocateVirtualMemory((HANDLE)-1, (PVOID*)&BaseAddress, (ULONG_PTR)0, &buffSize, 
+                                                    (ULONG)(MEM_COMMIT | MEM_RESERVE),PAGE_EXECUTE_READWRITE);
+
+        memcpy(BaseAddress, hexchars, sizeof(hexchars));
+
+        printf("NTSTATUS VALUE: %d\n", Result);
+        printf("Allocated address at: 0x%p\n", BaseAddress);
+        printf("\n");
     }
     else
     {
         syscall_address = (UINT_PTR)GetSyscallAddress(FunctionAddress);
-        syscall_value = (DWORD)OpCode[4];
-        printf("\nunhooked %s function syscall: 0x%x", FuncName, syscall_value);
-        printf("\nunhooked %s syscall address: 0x%p\n", FuncName, syscall_address);
+        syscall_value = (DWORD)GetSyscallNumberNotHooked(OpCode);
+        printf("\nunhooked %s function syscall: 0x%x\n", FuncName, syscall_value);
+        printf("unhooked %s syscall address: 0x%p\n", FuncName, syscall_address);
 
-        PVOID BaseAddress = NULL;
-        SIZE_T buffSize = 0x1000;
-        ULONG ZeroBits = 0;
-        NTSTATUS a = MyNtAllocateVirtualMemory((HANDLE)-1, (PVOID*)&BaseAddress, (ULONG_PTR)0, &buffSize, (ULONG)(MEM_COMMIT | MEM_RESERVE), PAGE_EXECUTE_READWRITE);
+        BaseAddress = NULL;
+        buffSize = 0x1000;
+        ZeroBits = 0;
+        NTSTATUS Result = MyNtAllocateVirtualMemory((HANDLE)-1, (PVOID*)&BaseAddress, (ULONG_PTR)0, &buffSize, 
+                                                    (ULONG)(MEM_COMMIT | MEM_RESERVE), PAGE_EXECUTE_READWRITE);
         
-        char hexchars[] = "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90";
         memcpy(BaseAddress, hexchars, sizeof(hexchars));
         
-        printf("NTSTATUS VALUE: %d\n", a);
+        printf("\nNTSTATUS VALUE: %d\n", Result);
         printf("Allocated address at: 0x%p\n", BaseAddress);
         
         printf("\n");
-
     }
-
     return 0;
 }
 
